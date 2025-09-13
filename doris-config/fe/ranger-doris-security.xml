@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+    <property>
+        <name>ranger.plugin.doris.service.name</name>
+        <value>doris-cluster</value>
+    </property>
+    <property>
+        <name>ranger.plugin.doris.policy.rest.url</name>
+        <value>http://172.20.0.20:6080</value>
+    </property>
+    <property>
+        <name>ranger.plugin.doris.policy.rest.ssl.config.file</name>
+        <value></value>
+    </property>
+    <property>
+        <name>ranger.plugin.doris.policy.source.impl</name>
+        <value>org.apache.ranger.admin.client.RangerAdminRESTClient</value>
+    </property>
+    <property>
+        <name>ranger.plugin.doris.policy.cache.dir</name>
+        <value>/opt/apache-doris/fe/ranger-cache/</value>
+    </property>
+    <property>
+        <name>ranger.plugin.doris.policy.pollIntervalMs</name>
+        <value>30000</value>
+    </property>
+    <property>
+        <name>ranger.plugin.doris.policy.rest.client.connection.timeoutMs</name>
+        <value>60000</value>
+    </property>
+    <property>
+        <name>ranger.plugin.doris.policy.rest.client.read.timeoutMs</name>
+        <value>60000</value>
+    </property>
+    <property>
+        <name>xasecure.audit.is.enabled</name>
+        <value>false</value>
+    </property>
+</configuration>

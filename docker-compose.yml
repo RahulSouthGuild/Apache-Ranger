@@ -1,0 +1,221 @@
+version: '3.8'
+
+networks:
+  doris-ranger-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# Volumes are now using bind mounts from ./data directory
+
+services:
+  # PostgreSQL Database for Ranger (using official Ranger DB image)
+  ranger-db:
+    image: apache/ranger-db:2.7.0
+    platform: linux/amd64
+    container_name: ranger-db
+    hostname: ranger-db.example.com
+    networks:
+      doris-ranger-network:
+        ipv4_address: 172.20.0.10
+    ports:
+      - "5433:5432"
+    restart: always
+    healthcheck:
+      test: ["CMD", "su", "-c", "pg_isready -q", "postgres"]
+      interval: 10s
+      timeout: 2s
+      retries: 30
+
+  # Apache Solr for Ranger Audit
+  ranger-solr:
+    image: apache/ranger-solr:2.7.0
+    platform: linux/amd64
+    container_name: ranger-solr
+    hostname: ranger-solr.example.com
+    networks:
+      doris-ranger-network:
+        ipv4_address: 172.20.0.11
+    ports:
+      - "8983:8983"
+    restart: always
+    command: ["solr-precreate", "ranger_audits", "/opt/solr/server/solr/configsets/ranger_audits/"]
+
+  # Zookeeper for Ranger
+  ranger-zk:
+    image: apache/ranger-zk:2.7.0
+    platform: linux/amd64
+    container_name: ranger-zk
+    hostname: ranger-zk.example.com
+    networks:
+      doris-ranger-network:
+        ipv4_address: 172.20.0.12
+    ports:
+      - "2181:2181"
+    restart: always
+
+  # Apache Ranger Admin
+  ranger:
+    image: apache/ranger:2.7.0
+    platform: linux/amd64
+    container_name: ranger
+    hostname: ranger.example.com
+    environment:
+      RANGER_VERSION: 2.7.0
+      RANGER_DB_TYPE: postgres
+    networks:
+      doris-ranger-network:
+        ipv4_address: 172.20.0.20
+    ports:
+      - "6080:6080"
+    volumes:
+      - ./ranger-config/ranger-doris-plugin-3.0.0-SNAPSHOT.jar:/opt/ranger/ranger-2.7.0-admin/ews/webapp/WEB-INF/classes/ranger-plugins/doris/ranger-doris-plugin-3.0.0-SNAPSHOT.jar:ro
+      - ./ranger-config/mysql-connector-java-8.0.25.jar:/opt/ranger/ranger-2.7.0-admin/ews/webapp/WEB-INF/classes/ranger-plugins/doris/mysql-connector-java-8.0.25.jar:ro
+      - ./ranger-config/ranger-servicedef-doris.json:/opt/ranger-config/ranger-servicedef-doris.json:ro
+      - ./ranger-config/ranger-startup.sh:/opt/ranger-startup.sh:ro
+    depends_on:
+      ranger-db:
+        condition: service_healthy
+      ranger-solr:
+        condition: service_started
+      ranger-zk:
+        condition: service_started
+    command: ["/bin/bash", "/opt/ranger-startup.sh"]
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+  # Apache Ranger UserSync (optional - can be added later)
+  # ranger-usersync:
+  #   image: apache/ranger-usersync:2.7.0
+  #   platform: linux/amd64
+  #   container_name: ranger-usersync
+  #   hostname: ranger-usersync.example.com
+  #   environment:
+  #     RANGER_VERSION: 2.7.0
+  #   networks:
+  #     doris-ranger-network:
+  #       ipv4_address: 172.20.0.21
+  #   depends_on:
+  #     ranger:
+  #       condition: service_healthy
+
+  # Apache Ranger TagSync (optional - can be added later)
+  # ranger-tagsync:
+  #   image: apache/ranger-tagsync:2.7.0
+  #   platform: linux/amd64
+  #   container_name: ranger-tagsync
+  #   hostname: ranger-tagsync.example.com
+  #   environment:
+  #     RANGER_VERSION: 2.7.0
+  #   networks:
+  #     doris-ranger-network:
+  #       ipv4_address: 172.20.0.22
+  #   depends_on:
+  #     ranger:
+  #       condition: service_healthy
+
+  # Apache Doris Frontend (FE)
+  doris-fe-01:
+    image: dyrnq/doris:3.0.5
+    platform: linux/amd64
+    container_name: doris-fe-01
+    hostname: doris-fe-01
+    environment:
+      - TZ=Asia/Kolkata
+      - RUN_MODE=FE
+      - FE_SERVERS=doris-fe-01:172.20.0.30:9010
+      - FE_ID=1
+      - ENABLE_FQDN_MODE=true
+    ports:
+      - "8031:8030"
+      - "9031:9030"
+    volumes:
+      - ./data/fe-01-meta:/opt/apache-doris/fe/doris-meta
+      - ./data/fe-01-log:/opt/apache-doris/fe/log
+      - ./doris-config/fe/fe.conf:/tmp/custom-fe.conf:ro
+      - ./doris-config/fe/ranger-doris-security.xml:/tmp/ranger-doris-security.xml:ro
+      - ./doris-config/fe/ranger-doris-audit.xml:/tmp/ranger-doris-audit.xml:ro
+      - ./doris-config/fe/log4j.properties:/tmp/log4j.properties:ro
+      - ./ranger-config/ranger-doris-plugin-3.0.0-SNAPSHOT.jar:/tmp/ranger-doris-plugin-3.0.0-SNAPSHOT.jar:ro
+      - ./ranger-config/mysql-connector-java-8.0.25.jar:/tmp/mysql-connector-java-8.0.25.jar:ro
+      - ./doris-config/fe-entrypoint.sh:/custom-entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/custom-entrypoint.sh"]
+    networks:
+      doris-ranger-network:
+        ipv4_address: 172.20.0.30
+    restart: always
+    logging:
+      options:
+        max-size: '500m'
+
+  # Apache Doris Backend (BE)
+  doris-be-01:
+    image: dyrnq/doris:3.0.5
+    platform: linux/amd64
+    container_name: doris-be-01
+    hostname: doris-be-01
+    environment:
+      - TZ=Asia/Kolkata
+      - RUN_MODE=BE
+      - FE_SERVERS=doris-fe-01:172.20.0.30:9010
+      - BE_ADDR=172.20.0.31:9050
+      - ENABLE_FQDN_MODE=true
+      - MYSQL_PWD=root
+      - WAIT4X_MYSQL_DSN=root:root@tcp(172.20.0.30:9030)/
+    ports:
+      - "8041:8040"
+    volumes:
+      - ./data/be-01-storage:/opt/apache-doris/be/storage
+      - ./data/be-01-log:/opt/apache-doris/be/log
+      - ./doris-config/be/be.conf:/tmp/custom-be.conf:ro
+      - ./doris-config/be-entrypoint.sh:/custom-entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/custom-entrypoint.sh"]
+    depends_on:
+      - doris-fe-01
+    networks:
+      doris-ranger-network:
+        ipv4_address: 172.20.0.31
+    restart: always
+    ulimits:
+      nofile:
+        soft: 655350
+        hard: 655350
+      memlock:
+        soft: -1
+        hard: -1
+    privileged: true
+    logging:
+      options:
+        max-size: '500m'
+
+  # Optional: Additional Doris Backend nodes can be added here
+  # doris-be-2:
+  #   image: apache/doris:2.1.0-be
+  #   container_name: doris-be-2
+  #   hostname: doris-be-2
+  #   environment:
+  #     FE_SERVERS: fe1:doris-fe:9010
+  #     BE_ADDR: doris-be-2:9050
+  #     PRIORITY_NETWORKS: 172.20.0.0/16
+  #     NODE_ROLE: ""
+  #   volumes:
+  #     - doris_be2_storage:/opt/apache-doris/be/storage
+  #     - doris_be2_log:/opt/apache-doris/be/log
+  #     - ./doris-config/be/be.conf:/opt/apache-doris/be/conf/be.conf
+  #   networks:
+  #     doris-ranger-network:
+  #       ipv4_address: 172.20.0.32
+  #   ports:
+  #     - "8041:8040"
+  #     - "9051:9050"
+  #     - "9061:9060"
+  #     - "8061:8060"
+  #   depends_on:
+  #     doris-fe:
+  #       condition: service_healthy
