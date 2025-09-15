@@ -1,0 +1,12 @@
+# Organizational Units
+dn: ou=users,dc=example,dc=com
+objectClass: organizationalUnit
+ou: users
+
+dn: ou=groups,dc=example,dc=com
+objectClass: organizationalUnit
+ou: groups
+
+dn: ou=services,dc=example,dc=com
+objectClass: organizationalUnit
+ou: services

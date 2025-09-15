@@ -1,0 +1,21 @@
+# Custom schema for additional attributes if needed
+dn: cn=custom,cn=schema,cn=config
+objectClass: olcSchemaConfig
+cn: custom
+olcAttributeTypes: ( 1.3.6.1.4.1.12345.1.1.1
+  NAME 'department'
+  DESC 'Department name'
+  EQUALITY caseIgnoreMatch
+  SUBSTR caseIgnoreSubstringsMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
+olcAttributeTypes: ( 1.3.6.1.4.1.12345.1.1.2
+  NAME 'accessLevel'
+  DESC 'Access level for authorization'
+  EQUALITY integerMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 )
+olcObjectClasses: ( 1.3.6.1.4.1.12345.1.2.1
+  NAME 'customPerson'
+  DESC 'Custom person attributes'
+  SUP inetOrgPerson
+  STRUCTURAL
+  MAY ( department $ accessLevel ) )

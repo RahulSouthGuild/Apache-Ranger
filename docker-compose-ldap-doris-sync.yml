@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  # LDAP to Doris User Sync Service
+  ldap-doris-sync:
+    image: ubuntu:22.04
+    container_name: ldap-doris-sync
+    hostname: ldap-doris-sync
+    environment:
+      SYNC_INTERVAL: 30  # Sync every 30 seconds
+    volumes:
+      - ./scripts/ldap-doris-sync.sh:/opt/ldap-doris-sync.sh:ro
+      - ./data/sync-logs:/var/log/sync
+    command: |
+      bash -c "
+        apt-get update && apt-get install -y ldap-utils mysql-client &&
+        while true; do
+          bash /opt/ldap-doris-sync.sh continuous
+        done
+      "
+    networks:
+      - doris-ranger-network
+    depends_on:
+      - openldap
+      - doris-fe-01
+    restart: unless-stopped
+
+networks:
+  doris-ranger-network:
+    external: true
+    name: apache-ranger_doris-ranger-network

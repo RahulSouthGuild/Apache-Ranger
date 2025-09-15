@@ -1,0 +1,68 @@
+# Sample Users
+dn: uid=john.doe,ou=users,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: john.doe
+sn: Doe
+givenName: John
+cn: John Doe
+displayName: John Doe
+uidNumber: 10001
+gidNumber: 10001
+userPassword: password123
+gecos: John Doe
+loginShell: /bin/bash
+homeDirectory: /home/john.doe
+mail: john.doe@example.com
+
+dn: uid=jane.smith,ou=users,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: jane.smith
+sn: Smith
+givenName: Jane
+cn: Jane Smith
+displayName: Jane Smith
+uidNumber: 10002
+gidNumber: 10001
+userPassword: password123
+gecos: Jane Smith
+loginShell: /bin/bash
+homeDirectory: /home/jane.smith
+mail: jane.smith@example.com
+
+dn: uid=admin.user,ou=users,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: admin.user
+sn: User
+givenName: Admin
+cn: Admin User
+displayName: Admin User
+uidNumber: 10003
+gidNumber: 10001
+userPassword: admin123
+gecos: Admin User
+loginShell: /bin/bash
+homeDirectory: /home/admin.user
+mail: admin.user@example.com
+
+dn: uid=data.analyst,ou=users,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: data.analyst
+sn: Analyst
+givenName: Data
+cn: Data Analyst
+displayName: Data Analyst
+uidNumber: 10004
+gidNumber: 10001
+userPassword: password123
+gecos: Data Analyst
+loginShell: /bin/bash
+homeDirectory: /home/data.analyst
+mail: data.analyst@example.com

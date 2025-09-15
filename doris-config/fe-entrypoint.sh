@@ -31,6 +31,13 @@ if [ -f "/tmp/log4j.properties" ]; then
     chmod 644 /opt/apache-doris/fe/conf/log4j.properties
 fi
 
+# Copy LDAP configuration if it exists
+if [ -f "/tmp/ldap.conf" ]; then
+    echo "Copying ldap.conf to conf directory"
+    cp /tmp/ldap.conf /opt/apache-doris/fe/conf/ldap.conf
+    chmod 644 /opt/apache-doris/fe/conf/ldap.conf
+fi
+
 # Copy Ranger plugin JARs if they exist
 if [ -f "/tmp/ranger-doris-plugin-3.0.0-SNAPSHOT.jar" ]; then
     echo "Copying Ranger Doris plugin JAR to lib directory"

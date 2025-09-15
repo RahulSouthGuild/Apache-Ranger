@@ -1,0 +1,46 @@
+# Groups
+dn: cn=admins,ou=groups,dc=example,dc=com
+objectClass: top
+objectClass: groupOfNames
+objectClass: posixGroup
+cn: admins
+gidNumber: 10001
+memberUid: admin.user
+memberUid: john.doe
+member: uid=admin.user,ou=users,dc=example,dc=com
+member: uid=john.doe,ou=users,dc=example,dc=com
+description: System Administrators
+
+dn: cn=users,ou=groups,dc=example,dc=com
+objectClass: top
+objectClass: groupOfNames
+objectClass: posixGroup
+cn: users
+gidNumber: 10002
+memberUid: jane.smith
+memberUid: data.analyst
+member: uid=jane.smith,ou=users,dc=example,dc=com
+member: uid=data.analyst,ou=users,dc=example,dc=com
+description: Regular Users
+
+dn: cn=data-analysts,ou=groups,dc=example,dc=com
+objectClass: top
+objectClass: groupOfNames
+objectClass: posixGroup
+cn: data-analysts
+gidNumber: 10003
+memberUid: data.analyst
+memberUid: jane.smith
+member: uid=data.analyst,ou=users,dc=example,dc=com
+member: uid=jane.smith,ou=users,dc=example,dc=com
+description: Data Analysts Group
+
+dn: cn=ranger-admins,ou=groups,dc=example,dc=com
+objectClass: top
+objectClass: groupOfNames
+objectClass: posixGroup
+cn: ranger-admins
+gidNumber: 10004
+memberUid: admin.user
+member: uid=admin.user,ou=users,dc=example,dc=com
+description: Ranger Administrators

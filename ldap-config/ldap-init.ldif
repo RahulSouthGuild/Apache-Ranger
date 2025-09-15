@@ -1,0 +1,169 @@
+# LDAP initial configuration
+# Base domain structure
+dn: dc=example,dc=com
+objectClass: top
+objectClass: dcObject
+objectClass: organization
+o: Example Organization
+dc: example
+
+# Admin user
+dn: cn=admin,dc=example,dc=com
+objectClass: simpleSecurityObject
+objectClass: organizationalRole
+cn: admin
+userPassword: {SSHA}admin123
+description: LDAP administrator
+
+# Organizational Units
+dn: ou=users,dc=example,dc=com
+objectClass: organizationalUnit
+ou: users
+
+dn: ou=groups,dc=example,dc=com
+objectClass: organizationalUnit
+ou: groups
+
+dn: ou=services,dc=example,dc=com
+objectClass: organizationalUnit
+ou: services
+
+# Sample Users
+dn: uid=john.doe,ou=users,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: john.doe
+sn: Doe
+givenName: John
+cn: John Doe
+displayName: John Doe
+uidNumber: 10001
+gidNumber: 10001
+userPassword: {SSHA}password123
+gecos: John Doe
+loginShell: /bin/bash
+homeDirectory: /home/john.doe
+mail: john.doe@example.com
+
+dn: uid=jane.smith,ou=users,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: jane.smith
+sn: Smith
+givenName: Jane
+cn: Jane Smith
+displayName: Jane Smith
+uidNumber: 10002
+gidNumber: 10001
+userPassword: {SSHA}password123
+gecos: Jane Smith
+loginShell: /bin/bash
+homeDirectory: /home/jane.smith
+mail: jane.smith@example.com
+
+dn: uid=admin.user,ou=users,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: admin.user
+sn: User
+givenName: Admin
+cn: Admin User
+displayName: Admin User
+uidNumber: 10003
+gidNumber: 10001
+userPassword: {SSHA}admin123
+gecos: Admin User
+loginShell: /bin/bash
+homeDirectory: /home/admin.user
+mail: admin.user@example.com
+
+dn: uid=data.analyst,ou=users,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: data.analyst
+sn: Analyst
+givenName: Data
+cn: Data Analyst
+displayName: Data Analyst
+uidNumber: 10004
+gidNumber: 10001
+userPassword: {SSHA}password123
+gecos: Data Analyst
+loginShell: /bin/bash
+homeDirectory: /home/data.analyst
+mail: data.analyst@example.com
+
+# Groups
+dn: cn=admins,ou=groups,dc=example,dc=com
+objectClass: posixGroup
+objectClass: top
+cn: admins
+gidNumber: 10001
+memberUid: admin.user
+memberUid: john.doe
+description: System Administrators
+
+dn: cn=users,ou=groups,dc=example,dc=com
+objectClass: posixGroup
+objectClass: top
+cn: users
+gidNumber: 10002
+memberUid: jane.smith
+memberUid: data.analyst
+description: Regular Users
+
+dn: cn=data-analysts,ou=groups,dc=example,dc=com
+objectClass: posixGroup
+objectClass: top
+cn: data-analysts
+gidNumber: 10003
+memberUid: data.analyst
+memberUid: jane.smith
+description: Data Analysts Group
+
+dn: cn=ranger-admins,ou=groups,dc=example,dc=com
+objectClass: posixGroup
+objectClass: top
+cn: ranger-admins
+gidNumber: 10004
+memberUid: admin.user
+description: Ranger Administrators
+
+# Service Accounts
+dn: uid=ranger,ou=services,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: ranger
+sn: Service
+givenName: Ranger
+cn: Ranger Service
+displayName: Ranger Service Account
+uidNumber: 20001
+gidNumber: 20001
+userPassword: {SSHA}rangerpass123
+gecos: Ranger Service Account
+loginShell: /bin/false
+homeDirectory: /nonexistent
+mail: ranger@example.com
+
+dn: uid=doris,ou=services,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: doris
+sn: Service
+givenName: Doris
+cn: Doris Service
+displayName: Doris Service Account
+uidNumber: 20002
+gidNumber: 20001
+userPassword: {SSHA}dorispass123
+gecos: Doris Service Account
+loginShell: /bin/false
+homeDirectory: /nonexistent
+mail: doris@example.com

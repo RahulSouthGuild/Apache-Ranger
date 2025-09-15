@@ -1,0 +1,16 @@
+dn: uid=sthapliyal,ou=users,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: sthapliyal
+sn: Thapliyal
+givenName: Saurabh
+cn: Saurabh Thapliyal
+displayName: Saurabh Thapliyal
+uidNumber: 10006
+gidNumber: 10003
+userPassword: SaurabhPass123
+gecos: Saurabh Thapliyal
+loginShell: /bin/bash
+homeDirectory: /home/users/sthapliyal
+mail: sthapliyal@example.com

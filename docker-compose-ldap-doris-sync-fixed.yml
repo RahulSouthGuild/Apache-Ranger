@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  ldap-doris-sync:
+    image: ubuntu:22.04
+    container_name: ldap-doris-sync-fixed
+    networks:
+      - apache-ranger_doris-ranger-network
+    environment:
+      SYNC_INTERVAL: 30
+      MAX_CONNECTIONS: 5  # Limit connections
+    volumes:
+      - ./scripts:/scripts:ro
+      - /tmp:/tmp
+    command: |
+      bash -c "
+        apt-get update && apt-get install -y ldap-utils mysql-client curl > /dev/null 2>&1
+
+        # Configuration
+        LDAP_HOST='openldap'
+        LDAP_PORT='389'
+        LDAP_BIND_DN='cn=admin,dc=example,dc=com'
+        LDAP_BIND_PASSWORD='admin123'
+        LDAP_USER_BASE='ou=users,dc=example,dc=com'
+
+        DORIS_HOST='doris-fe-01'
+        DORIS_PORT='9030'
+        DORIS_USER='root'
+        DORIS_PASSWORD=''
+
+        SYNC_INTERVAL=30
+        LOG_FILE='/tmp/ldap-doris-sync.log'
+        CONNECTION_COUNT=0
+        MAX_CONNECTIONS=5
+
+        echo 'Starting optimized LDAP to Doris sync service'
+        echo 'Sync interval: 30 seconds'
+        echo 'Max connections per cycle: 5'
+
+        while true; do
+            echo \"[\$(date '+%Y-%m-%d %H:%M:%S')] Starting sync cycle\" | tee -a \$LOG_FILE
+
+            # Get LDAP users
+            LDAP_USERS=\$(ldapsearch -x -H ldap://\$LDAP_HOST:\$LDAP_PORT \
+                -D \"\$LDAP_BIND_DN\" -w \"\$LDAP_BIND_PASSWORD\" \
+                -b \"\$LDAP_USER_BASE\" '(objectClass=inetOrgPerson)' uid 2>/dev/null | \
+                grep '^uid:' | cut -d' ' -f2)
+
+            # Get existing Doris users
+            DORIS_USERS=\$(mysql -h\$DORIS_HOST -P\$DORIS_PORT -u\$DORIS_USER -N -e \
+                \"SELECT User FROM mysql.user WHERE User NOT IN ('root', 'admin', 'rahul');\" 2>/dev/null)
+
+            # Create missing users (batch operation)
+            SQL_BATCH=\"\"
+            NEW_COUNT=0
+
+            for user in \$LDAP_USERS; do
+                if ! echo \"\$DORIS_USERS\" | grep -q \"^\$user$\"; then
+                    SQL_BATCH=\"\${SQL_BATCH}CREATE USER IF NOT EXISTS '\$user'@'%' IDENTIFIED BY 'password123';\"
+                    ((NEW_COUNT++))
+
+                    # Execute batch when reaching max connections
+                    if [ \$NEW_COUNT -ge \$MAX_CONNECTIONS ]; then
+                        echo \"\$SQL_BATCH\" | mysql -h\$DORIS_HOST -P\$DORIS_PORT -u\$DORIS_USER 2>/dev/null
+                        SQL_BATCH=\"\"
+                        NEW_COUNT=0
+                    fi
+                fi
+            done
+
+            # Execute remaining batch
+            if [ -n \"\$SQL_BATCH\" ]; then
+                echo \"\$SQL_BATCH\" | mysql -h\$DORIS_HOST -P\$DORIS_PORT -u\$DORIS_USER 2>/dev/null
+            fi
+
+            echo \"[\$(date '+%Y-%m-%d %H:%M:%S')] Sync complete\" | tee -a \$LOG_FILE
+
+            # Clean up idle connections periodically (every 10 cycles)
+            CONNECTION_COUNT=\$((CONNECTION_COUNT + 1))
+            if [ \$CONNECTION_COUNT -ge 10 ]; then
+                echo 'Cleaning idle connections...'
+                mysql -h\$DORIS_HOST -P\$DORIS_PORT -u\$DORIS_USER -e \
+                    \"SELECT CONCAT('KILL CONNECTION ', Id, ';') FROM information_schema.processlist
+                     WHERE Command = 'Sleep' AND Time > 60;\" 2>/dev/null | \
+                    mysql -h\$DORIS_HOST -P\$DORIS_PORT -u\$DORIS_USER 2>/dev/null
+                CONNECTION_COUNT=0
+            fi
+
+            sleep \$SYNC_INTERVAL
+        done
+      "
+    restart: unless-stopped
+
+networks:
+  apache-ranger_doris-ranger-network:
+    external: true

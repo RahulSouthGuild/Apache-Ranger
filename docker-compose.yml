@@ -64,6 +64,19 @@ services:
     environment:
       RANGER_VERSION: 2.7.0
       RANGER_DB_TYPE: postgres
+      # LDAP Authentication Configuration
+      RANGER_AUTHENTICATION_METHOD: LDAP
+      RANGER_LDAP_URL: ldap://openldap:389
+      RANGER_LDAP_USER_DN_PATTERN: uid={0},ou=users,dc=example,dc=com
+      RANGER_LDAP_GROUP_SEARCH_BASE: ou=groups,dc=example,dc=com
+      RANGER_LDAP_GROUP_SEARCH_FILTER: (member={0})
+      RANGER_LDAP_GROUP_ROLE_ATTRIBUTE: cn
+      RANGER_LDAP_BASE_DN: dc=example,dc=com
+      RANGER_LDAP_BIND_DN: cn=admin,dc=example,dc=com
+      RANGER_LDAP_BIND_PASSWORD: admin123
+      RANGER_LDAP_REFERRAL: follow
+      RANGER_LDAP_USER_SEARCH_FILTER: (uid={0})
+      RANGER_LDAP_DEFAULT_ROLE: ROLE_USER
     networks:
       doris-ranger-network:
         ipv4_address: 172.20.0.20
@@ -81,6 +94,8 @@ services:
         condition: service_started
       ranger-zk:
         condition: service_started
+      openldap:
+        condition: service_started
     command: ["/bin/bash", "/opt/ranger-startup.sh"]
     restart: always
     healthcheck:
@@ -90,20 +105,87 @@ services:
       retries: 5
       start_period: 120s
 
-  # Apache Ranger UserSync (optional - can be added later)
-  # ranger-usersync:
-  #   image: apache/ranger-usersync:2.7.0
-  #   platform: linux/amd64
-  #   container_name: ranger-usersync
-  #   hostname: ranger-usersync.example.com
-  #   environment:
-  #     RANGER_VERSION: 2.7.0
-  #   networks:
-  #     doris-ranger-network:
-  #       ipv4_address: 172.20.0.21
-  #   depends_on:
-  #     ranger:
-  #       condition: service_healthy
+  # OpenLDAP Server
+  openldap:
+    image: osixia/openldap:1.5.0
+    container_name: openldap
+    hostname: ldap.example.com
+    environment:
+      - LDAP_ORGANISATION=Example Organization
+      - LDAP_DOMAIN=example.com
+      - LDAP_BASE_DN=dc=example,dc=com
+      - LDAP_ADMIN_PASSWORD=admin123
+      - LDAP_CONFIG_PASSWORD=config123
+      - LDAP_RFC2307BIS_SCHEMA=true
+      - LDAP_BACKEND=mdb
+      - LDAP_TLS=true
+      - LDAP_TLS_CRT_FILENAME=ldap.crt
+      - LDAP_TLS_KEY_FILENAME=ldap.key
+      - LDAP_TLS_CA_CRT_FILENAME=ca.crt
+      - LDAP_TLS_ENFORCE=false
+      - LDAP_TLS_VERIFY_CLIENT=never
+      - LDAP_REPLICATION=false
+      - LDAP_REMOVE_CONFIG_AFTER_SETUP=false
+      - LDAP_SSL_HELPER_PREFIX=ldap
+    volumes:
+      - ./data/ldap/data:/var/lib/ldap
+      - ./data/ldap/config:/etc/ldap/slapd.d
+      - ./ldap-config/ldap-init.ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom/ldap-init.ldif
+    ports:
+      - "389:389"
+      - "636:636"
+    networks:
+      doris-ranger-network:
+        ipv4_address: 172.20.0.50
+    restart: always
+
+  # phpLDAPadmin for LDAP management UI
+  phpldapadmin:
+    image: osixia/phpldapadmin:0.9.0
+    container_name: phpldapadmin
+    hostname: phpldapadmin.example.com
+    environment:
+      - PHPLDAPADMIN_LDAP_HOSTS=openldap
+      - PHPLDAPADMIN_HTTPS=false
+    ports:
+      - "6443:443"
+      - "6081:80"
+    networks:
+      doris-ranger-network:
+        ipv4_address: 172.20.0.51
+    depends_on:
+      - openldap
+    restart: always
+
+  # Apache Ranger UserSync - now enabled for LDAP sync
+  # Note: There's no official separate UserSync image, we need to use a custom solution
+  ranger-usersync:
+    image: ubuntu:22.04
+    platform: linux/amd64
+    container_name: ranger-usersync
+    hostname: ranger-usersync.example.com
+    environment:
+      # LDAP Configuration
+      SYNC_SOURCE: ldap
+      SYNC_LDAP_URL: ldap://openldap:389
+      SYNC_LDAP_BIND_DN: cn=admin,dc=example,dc=com
+      SYNC_LDAP_BIND_PASSWORD: admin123
+      SYNC_LDAP_USER_SEARCH_BASE: ou=users,dc=example,dc=com
+      SYNC_GROUP_SEARCH_BASE: ou=groups,dc=example,dc=com
+      POLICY_MGR_URL: http://ranger:6080
+      RANGER_ADMIN_USERNAME: admin
+      RANGER_ADMIN_PASSWORD: rangerR0cks!
+    volumes:
+      - ./ranger-config/ldap-sync-script.sh:/opt/ldap-sync-script.sh:ro
+    command: ["/bin/bash", "-c", "apt-get update && apt-get install -y ldap-utils curl jq && while true; do bash /opt/ldap-sync-script.sh; sleep 30; done"]
+    networks:
+      doris-ranger-network:
+        ipv4_address: 172.20.0.21
+    depends_on:
+      ranger:
+        condition: service_healthy
+      openldap:
+        condition: service_started
 
   # Apache Ranger TagSync (optional - can be added later)
   # ranger-tagsync:
@@ -132,6 +214,13 @@ services:
       - FE_SERVERS=doris-fe-01:172.20.0.30:9010
       - FE_ID=1
       - ENABLE_FQDN_MODE=true
+      # LDAP Configuration for Doris
+      - LDAP_HOST=openldap
+      - LDAP_PORT=389
+      - LDAP_ADMIN_DN=cn=admin,dc=example,dc=com
+      - LDAP_ADMIN_PASSWORD=admin123
+      - LDAP_USER_BASE_DN=ou=users,dc=example,dc=com
+      - LDAP_GROUP_BASE_DN=ou=groups,dc=example,dc=com
     ports:
       - "8031:8030"
       - "9031:9030"
@@ -139,6 +228,7 @@ services:
       - ./data/fe-01-meta:/opt/apache-doris/fe/doris-meta
       - ./data/fe-01-log:/opt/apache-doris/fe/log
       - ./doris-config/fe/fe.conf:/tmp/custom-fe.conf:ro
+      - ./doris-config/fe/ldap.conf:/tmp/ldap.conf:ro
       - ./doris-config/fe/ranger-doris-security.xml:/tmp/ranger-doris-security.xml:ro
       - ./doris-config/fe/ranger-doris-audit.xml:/tmp/ranger-doris-audit.xml:ro
       - ./doris-config/fe/log4j.properties:/tmp/log4j.properties:ro
